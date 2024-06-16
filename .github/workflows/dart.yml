@@ -1,40 +1,62 @@
-name: Flutter CI
-
-# 创建触发打包条件：只要推送tag，就会触发版本打包
+name: Build and Release Flutter APK
 
 on:
   push:
     tags:
-      - v*
-    
+      - 'v*.*.*'  # 仅在创建新标签时触发
+
 jobs:
   build:
-    # This job will run on ubuntu virtual machine
     runs-on: ubuntu-latest
+
     steps:
-    
-    # Setup Java environment in order to build the Android app.
-    - uses: actions/checkout@v1
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
       with:
-    # 使用office分支的代码
-        path: office
-    - uses: actions/setup-java@v1
+        flutter-version: 'latest'
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Build APK
+      run: flutter build apk --release
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v2
       with:
-        java-version: '12.x'
-    
-    # Setup the flutter environment.
-    - uses: subosito/flutter-action@v1
+        name: release-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Release APK
+      uses: actions/download-artifact@v2
       with:
-        channel: 'stable' # 'dev', 'alpha', default to: 'stable'
-        # flutter-version: '1.12.x' # you can also specify exact version of flutter
-    
-    # Get flutter dependencies.
-    - run: flutter pub get    
-    # Build apk
-    - run: flutter build apk --target-platform android-arm
-    # 发包
-    - name: Release apk
-      uses: ncipollo/release-action@v1.5.0
+        name: release-apk
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        artifacts: "build/app/outputs/apk/release/*.apk"
-        token: $
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/app/outputs/flutter-apk/app-release.apk
+        asset_name: app-release.apk
+        asset_content_type: application/vnd.android.package-archive
