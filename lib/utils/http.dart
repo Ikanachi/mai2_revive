@@ -12,7 +12,7 @@ class Mai2HttpResponse {
 class Mai2HttpClient {
   static Future<Mai2HttpResponse> post(
       Uri uri, LinkedHashMap<String, String> headers, List<int> body) async {
-    final socket = await SecureSocket.connect(uri.host, uri.port);
+    final socket = await SecureSocket.connect(uri.host, uri.port, onBadCertificate: (X509Certificate cert) => true);
 
     final request = 'POST ${uri.path} HTTP/1.1\r\n'
         '${headers.entries.map((e) => '${e.key}: ${e.value}\r\n').join()}'
